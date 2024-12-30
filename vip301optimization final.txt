@@ -1,0 +1,138 @@
+R1TEST=3k
+R2TEST=2k
+R3TEST=3k
+C1TEST=10p
+C2TEST=1.2p
+deltaR=500
+deltaC=50f
+fc=10.8M
+
+(setq inputVar (list (list R1TEST deltaR "R1TEST")
+                  (list R2TEST deltaR "R2TEST")
+                  (list R3TEST deltaR "R3TEST")
+                  (list C1TEST deltaC "C1TEST")
+                  (list C2TEST deltaC "C2TEST")))
+
+procedure(CCFreadCSV(filename)
+    let((paramNames values inp line rows trailCR)
+        ;----------------------------------------------------------------
+        ; pattern for trailing carriage return
+        ;----------------------------------------------------------------
+        trailCR=pcreCompile("\n$")
+        inp=infile(filename)
+        ;----------------------------------------------------------------
+        ; First read the parameter names, then the rows of values.
+        ; Uses tconc to ensure lines read in order
+        ;----------------------------------------------------------------
+        when(inp && gets(line inp)
+            line=pcreReplace(trailCR line "" 1)
+            paramNames=parseString(line ",")
+            while(gets(line inp)
+                line=pcreReplace(trailCR line "" 1)
+                values=parseString(line ",")
+                rows=tconc(rows values)
+            )
+        )
+        when(inp
+            close(inp)
+        )
+        list(paramNames car(rows))
+    )
+)
+
+(defun minimumabsolutevalue (lst)
+  
+	minabs=(abs (nth 0 lst))
+	minnumb=(nth 0 lst)
+    (for i 1 length(lst)-1  
+		nexttocheck=(abs (nth i lst))
+		if((nexttocheck < minabs) then
+			minabs=nexttocheck
+			minnumb=(nth i lst)
+	)
+	)
+	minnumb
+)
+
+(defun GradFunction (InputVars)
+  	(setq resultgrad '())
+ 	for(i 0 (length(InputVars)-1)
+	      	 neededvar=stringToSymbol((nth 2 (nth i InputVars)) )
+			 setval= (nth 1 (nth i InputVars))+ (car (nth i InputVars))
+			 set(neededvar setval)
+             (load "/home/WIN2K/hfd04/Desktop/GradientFinalOcn.ocn")
+             (setq CSVOut (CCFreadCSV "/home/WIN2K/hfd04/Desktop/outputFinalGrad.csv"))
+             (setq res1 (nth 1 (nth 0 (nth 1 CSVOut))))
+			 println(CSVOut)
+	         setval= -2*(nth 1 (nth i InputVars))+ (car (nth i InputVars))
+			 set(neededvar setval)
+             (load "/home/WIN2K/hfd04/Desktop/GradientFinalOcn.ocn")
+             (setq CSVOut (CCFreadCSV "/home/WIN2K/hfd04/Desktop/outputFinalGrad.csv"))
+             (setq res2 (nth 1 (nth 0 (nth 1 CSVOut))))
+			 res1=atof(res1)
+			 res2=atof(res2)
+             partial= (res1-res2)/(2*(nth 1 (nth i InputVars)))
+             (push partial resultgrad)
+			 setval= (nth 1 (nth i InputVars))+ (car (nth i InputVars))
+			 set(neededvar setval)
+  	)
+			 resultgrad = (reverse resultgrad)
+             resultgrad
+
+)
+(defun OptimizationAlgo (InputVars target)
+    (load "/home/WIN2K/hfd04/Desktop/GradientFinalOcn.ocn")
+    (setq CSVOut (CCFreadCSV "/home/WIN2K/hfd04/Desktop/outputFinalGrad.csv"))
+    (setq center_freq (nth 1 (nth 0 (nth 1 CSVOut))))
+	center_freq=atof(center_freq)
+	epsilon = 1 
+	while( (abs (center_freq - target) >= epsilon)
+	    (setq gamma_list '())
+		Gradf=(GradFunction InputVars)
+		for(i 0 (length(Gradf)-1)
+			if(( (nth i Gradf) != 0) then 
+				gammanow = (-(nth 1 (nth i InputVars)))/(nth i Gradf)
+				(push gammanow gamma_list)
+		)
+		)
+		gammachosen=minimumabsolutevalue(gamma_list)
+		for(i 0 (length(Gradf)-1)
+			neededvar=stringToSymbol((nth 2 (nth i InputVars)) )
+			setval=(nth 0 (nth i InputVars))-gammachosen*(nth i Gradf) 
+			setf( (nth 0 (nth i InputVars)) setval)
+			set(neededvar setval)
+		)
+			(load "/home/WIN2K/hfd04/Desktop/GradientFinalOcn.ocn")
+            (setq CSVOut (CCFreadCSV "/home/WIN2K/hfd04/Desktop/outputFinalGrad.csv"))
+            (setq center_freq (nth 1 (nth 0 (nth 1 CSVOut))))
+			center_freq=atof(center_freq)
+			println("Results till now: ")
+			println("Gamma: ")
+			println(gamma_list)
+			println("Gradf: ")
+			println(Gradf)
+			println("InputVars: ")
+			println(InputVars)
+		)
+		InputVars
+		)
+		
+
+fc=10.8e6
+(setq output (OptimizationAlgo inputVar fc))
+println(output)
+
+
+
+			
+			
+
+
+
+
+
+
+
+
+
+
